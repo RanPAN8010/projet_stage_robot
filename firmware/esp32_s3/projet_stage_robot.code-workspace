@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"name": "esp32_s3",
+			"path": "."
+		},
+		{
+			"name": "serial:/COM6",
+			"uri": "serial://com6/"
+		}
+	],
+	"settings": {}
+}

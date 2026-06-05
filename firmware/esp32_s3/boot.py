@@ -1,40 +1,41 @@
-# boot.py
+from network import WLAN
 import network
 import time
-import config  # 导入刚才写的账号密码配置
-
+import machine
+import config  # 确保你的 config.py 里面有 WIFI_SSID 和 WIFI_PASSWORD
 
 def connect_wifi():
-    # 实例化一个无线网卡对象，设置为 STA (Station) 终端模式
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)  # 激活网卡
-
-    # 检查是否已经连上网络
+    # 1. 实例化 WLAN 对象 (标准 MicroPython 使用 network.STA_IF)
+    wlan = WLAN(network.STA_IF)
+    
+    # 2. 显式激活 Wi-Fi 射频芯片（这一步至关重要，能解决 Internal State Error）
+    wlan.active(True)
+    
+    # 给底层驱动 500ms 的稳定时间
+    time.sleep_ms(500)
+    
     if not wlan.isconnected():
-        print(f"正在尝试连接至 Wi-Fi: {config.WIFI_SSID} ...")
+        print("ESP32-S3 正在尝试连接至 Wi-Fi: {} ...".format(config.WIFI_SSID))
+        # 3. 标准 MicroPython 连接只需传入 ssid 和 password 参数
         wlan.connect(config.WIFI_SSID, config.WIFI_PASSWORD)
-
-        # 设置超时机制（防止死循环卡死单片机）
+        
+        # 设置 15 秒超时机制
         timeout = 15
         while not wlan.isconnected() and timeout > 0:
             print(".", end="")
             time.sleep(1)
             timeout -= 1
-        print()  # 换行
+        print()
 
-    # 判断最终连接结果
+    # 4. 验证最终连接状态
     if wlan.isconnected():
-        # wlan.ifconfig() 返回一个元组: (IP地址, 子网掩码, 网关, DNS服务器)
         ip_info = wlan.ifconfig()
-        print("\n====== [BOOT] 连网成功 ======")
-        print(f"ESP32-S3 局域网 IP : {ip_info[0]}")
-        print(f"子网掩码            : {ip_info[1]}")
-        print(f"默认网关            : {ip_info[2]}")
-        print("=============================\n")
+        print("\n====== [BOOT] ESP32-S3 连网成功 ======")
+        print("ESP32-S3 局域网 IP : {}".format(ip_info[0]))
+        print("======================================\n")
     else:
-        print("\n[错误] Wi-Fi 连接超时，请检查密码或实验室网络状态！")
-        # 实际工程中，这里可以选择使用 machine.reset() 重启硬件再次尝试
+        print("\n[错误] ESP32-S3 Wi-Fi 连接超时。")
+        print("当前状态码: {}".format(wlan.status()))
 
-
-# 运行连网函数
+# 执行连网函数
 connect_wifi()

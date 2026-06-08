@@ -2,5 +2,8 @@
 WIFI_SSID = "testtest"
 WIFI_PASSWORD = "Gongming"
 
-# 树莓派的静态 IP 地址（写在这里方便集中管理，稍后在 main.py 中调用）
-RASPBERRY_PI_IP = "10.3.183.6"
+# 树莓派的IP 地址
+RASPBERRY_PI_IP = "10.204.111.169"
+
+# MQTT 订阅和发布的 Topic 名字（可以自定义）
+MQTT_TOPIC = "esp32/data"

@@ -1,0 +1,6 @@
+{
+    "wifi": {
+        "wlan_autoconnect": false
+    },
+    "pybytes_autostart": false
+}

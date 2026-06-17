@@ -1,55 +1,50 @@
-import machine
-import dht
 import time
-import network
-from umqtt.simple import MQTTClient
-import config
+import gc
 
-# 初始化 DHT11 传感器，连接到 GPIO 5
-sensor = dht.DHT11(machine.Pin(5))
-
-def read_esp32_sensors():
-    try:
-        # 触发传感器测量
-        sensor.measure()
-        
-        # 读取数据
-        temp = sensor.temperature()
-        humidity = sensor.humidity()
-        
-        print("====== Données du capteur ESP32-S3 ======")
-        print("Température: {} C".format(temp))
-        print("Humidité: {} %".format(humidity))
-        print("=========================================\n")
-        
-        return temp, humidity
-    except Exception as e:
-        print("[Erreur] Impossible de lire les données du DHT11: {}".format(e))
-        return None, None
-
-# ==================== 2. MQTT 主程序逻辑 ====================
-print("Connexion au Broker MQTT du Raspberry Pi: {}...".format(config.RASPBERRY_PI_IP))
+# 1. 先尝试继承 boot.py 里已经占住网络通道的客户端
 try:
-    # 实例化 MQTT 客户端
-    # 参数分别为：客户端唯一ID，服务器IP地址
-    client = MQTTClient("ESP32S3_Client", config.RASPBERRY_PI_IP)
-    client.connect()
-    print("[Succès] Connecté avec succès au serveur MQTT du Raspberry Pi !\n")
-    
-    # 循环读取并发送数据
-    while True:
-        temp, humidity = read_esp32_sensors()
-        
-        if temp is not None and humidity is not None:
-            # 拼接成类似 JSON 的字符串格式
-            payload = "{{\"temperature\": {}, \"humidity\": {}}}".format(temp, humidity)
-            
-            print("Envoi des données sur le sujet {} ...".format(config.MQTT_TOPIC))
-            # 传输数据（注意：MicroPython 中发送数据需要转换为 bytes 类型）
-            client.publish(config.MQTT_TOPIC, payload.encode('utf-8'))
-            print("[Terminé] Données envoyées.\n")
-            
-        time.sleep(5) # 每隔 5 秒发送一次
-        
+    import boot
+    client = boot.mqtt_client
 except Exception as e:
-    print("[Erreur Critique] Le processus MQTT s'est effondré ou la connexion a été coupée: {}".format(e))
+    client = None
+
+if client is None:
+    print("[Attention] Pas de client MQTT. Mode autonome.")
+else:
+    print("[Info] Client MQTT initialisé avec succès.")
+
+# 2. 【核心修复】在导入大型硬件库之前，再次清理内存，并设置延迟
+print("Libération de la mémoire avant chargement des pilotes...")
+gc.collect()
+time.sleep(1)
+
+# 3. 此时网络已经连上，我们在最后一步才把沉重的 GPS 驱动请进内存
+print("Chargement des pilotes Pytrack et GPS...")
+from pycoproc_1 import Pycoproc
+from L76GNSS import L76GNSS
+
+# 4. 初始化硬件
+py = Pycoproc(Pycoproc.PYTRACK)
+gnss = L76GNSS(py, timeout=30)
+print("Matériel prêt. Démarrage de la collecte GPS...")
+
+while True:
+    coord = gnss.coordinates()
+    
+    if coord[0] is not None and coord[1] is not None:
+        payload = "{{\"latitude\": {}, \"longitude\": {}}}".format(coord[0], coord[1])
+    else:
+        payload = "{\"latitude\": null, \"longitude\": null}"
+        
+    print("Envoi: {}".format(payload))
+    
+    if client is not None and getattr(client, 'sock', None) is not None:
+        try:
+            client.publish("fipy/gps", payload.encode('utf-8'))
+        except Exception as e:
+            print("[Erreur] Perte de connexion : {}".format(e))
+            client.sock = None
+            
+    # 定期在循环底部回收垃圾，防止内存泄漏导致网卡再次挂掉
+    gc.collect()
+    time.sleep(5)

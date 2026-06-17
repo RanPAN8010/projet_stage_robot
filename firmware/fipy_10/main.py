@@ -1,34 +1,64 @@
-import machine
 import time
-from bmp180 import BMP180
+from pycoproc_1 import Pycoproc
+from L76GNSS import L76GNSS
+import usocket as socket
+import config
 
-# 1. 初始化 Pytrack 专属的 I2C 接口
-i2c = machine.I2C(0, pins=('P22', 'P21'))
+# 提取树莓派的 IP 
+target_ip = config.RASPBERRY_PI_IP
+target_port = 5000
 
-try:
-    # 2. 传入 I2C 实例
-    bmp = BMP180(i2c)
-    # 设置精度（0：低功耗，3：高分辨率）
-    bmp.oversample_sett = 2
-    print("[系统] 成功加载 micropython-IMU 开源库并完成初始化")
-except Exception as e:
-    print("[错误] 硬件初始化失败: {}".format(e))
-    bmp = None
+# 手动实现一个极简的 HTTP POST 函数
+def http_post_json(ip, port, path, json_data):
+    # 1. 序列化 JSON 字符串
+    import json
+    body = json.dumps(json_data)
+    
+    # 2. 拼接标准的 HTTP 请求报文
+    req = (
+        "POST {} HTTP/1.1\r\n"
+        "Host: {}:{}\r\n"
+        "Content-Type: application/json\r\n"
+        "Content-Length: {}\r\n"
+        "Connection: close\r\n\r\n"
+        "{}"
+    ).format(path, ip, port, len(body), body)
+    
+    # 3. 创建短连接 Socket 并发送
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        # 解析地址
+        addr = socket.getaddrinfo(ip, port)[0][-1]
+        s.connect(addr)
+        s.send(req.encode('utf-8'))
+        
+        # 接收服务器的响应（即用即断）
+        resp = s.recv(1024)
+        if b"200 OK" in resp:
+            print("[Succès HTTP] Données envoyées avec succès !")
+        else:
+            print("[HTTP] Réponse du serveur :", resp.split(b"\r\n")[0])
+    except Exception as e:
+        print("[Erreur HTTP] :", e)
+    finally:
+        s.close() # 必须关闭连接，释放网络栈资源
 
-# 3. 数据轮询采集
+# 初始化 Pytrack GPS 硬件
+py = Pycoproc(Pycoproc.PYTRACK)
+gnss = L76GNSS(py, timeout=30)
+print("Démarrage de la collecte GPS via HTTP...")
+
 while True:
-    if bmp:
-        try:
-            # 必须调用库提供的阻塞读取函数刷新内部 Generator 状态
-            bmp.blocking_read()
+    coord = gnss.coordinates()
+    
+    if coord[0] is not None and coord[1] is not None:
+        payload = {"latitude": coord[0], "longitude": coord[1]}
+    else:
+        payload = {"latitude": None, "longitude": None}
+        
+    print("Tentative d'envoi HTTP: {}".format(payload))
+    
+    # 调用手动实现的 HTTP 函数发包
+    http_post_json(target_ip, target_port, "/gps", payload)
             
-            # 读取温度属性
-            current_temp = bmp.temperature
-            
-            print("====== FiPy 传感器数据 (BMP180) ======")
-            print("当前环境温度: {} C".format(current_temp))
-            print("======================================\n")
-        except Exception as e:
-            print("[错误] 无法获取传感器温度: {}".format(e))
-            
-    time.sleep(2)
+    time.sleep(5)

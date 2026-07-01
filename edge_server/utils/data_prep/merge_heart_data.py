@@ -35,7 +35,7 @@ def merge_heart_and_fatigue():
     # 5. 通过列的物理位置索引 (iloc) 强制提取核心特征
     df_heart_prepared = pd.DataFrame()
     df_heart_prepared['HeartRate'] = df_heart_raw.iloc[:, 7]
-    df_heart_prepared['HRV'] = df_heart_raw.iloc[:, 9] * 100.0
+    df_heart_prepared['HRV'] = df_heart_raw.iloc[:, 9].abs() * 100.0
     df_heart_prepared['Label'] = df_heart_raw.iloc[:, -1].apply(lambda x: 2 if x == 1 else 0)
     
     # 6. 精简列结构

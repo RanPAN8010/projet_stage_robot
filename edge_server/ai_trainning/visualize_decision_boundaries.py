@@ -14,7 +14,7 @@ def plot_model_boundaries():
         return
         
     data_path = os.path.join(base_project_dir, 'data', 'driver_body_status_train.csv')
-    ai_engine_dir = os.path.join(base_project_dir, 'ai_engine')
+    ai_engine_dir = os.path.join(base_project_dir, 'ai_engine', 'med')
     
     if not os.path.exists(data_path):
         print(f"Erreur : Fichier de données introuvable - {data_path}")

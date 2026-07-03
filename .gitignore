@@ -3,7 +3,9 @@ __pycache__/
 *.pyc
 venv/
 .vscode/
-data/
-!data/.gitkeep
-ai_engine/*
-!ai_engine/.gitkeep
+edge_server/data/*
+!edge_server/data/.gitkeep
+edge_server/ai_engine/*
+!edge_server/ai_engine/**/
+!edge_server/ai_engine/med/.gitkeep
+!edge_server/ai_engine/env/.gitkeep

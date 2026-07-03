@@ -17,14 +17,14 @@ def evaluate_selected_model():
         
     # 定义数据和模型所在的绝对路径
     data_path = os.path.join(base_project_dir, 'data', 'driver_body_status_train.csv')
-    ai_engine_dir = os.path.join(base_project_dir, 'ai_engine')
+    ai_engine_dir = os.path.join(base_project_dir, 'ai_engine', 'med')
     
     # 检查训练集文件是否存在
     if not os.path.exists(data_path):
         print(f"Erreur : Fichier de données introuvable - {data_path}")
         return
         
-    # 扫描 ai_engine 文件夹下所有以 _model.joblib 结尾的模型文件
+    # 扫描 ai_engine/med 文件夹下所有以 _model.joblib 结尾的模型文件
     model_files = glob.glob(os.path.join(ai_engine_dir, '*_model.joblib'))
     if not model_files:
         print(f"Erreur : Aucun modèle trouvé dans {ai_engine_dir}")

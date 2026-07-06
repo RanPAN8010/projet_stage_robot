@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 from sklearn.metrics import classification_report, accuracy_score
+from sklearn.utils.class_weight import compute_sample_weight
 import xgboost as xgb
 
 def train_final_model():
@@ -41,23 +42,27 @@ def train_final_model():
     print(f"Échantillons d'entraînement : {X_train.shape[0]} lignes")
     print(f"Échantillons de test : {X_test.shape[0]} lignes")
     
-    # 4. 初始化 XGBoost 多分类器（针对 0=Sécurité, 1=Canicule, 2=Feu）
+    print("Calcul des poids équilibrés (sample_weight) pour corriger l'asymétrie des classes...")
+    sample_weights = compute_sample_weight(class_weight='balanced', y=y_train)
+    
+    # 初始化 XGBoost 多分类器（针对 0=Sécurité, 1=Canicule, 2=Feu）
     model = xgb.XGBClassifier(
         n_estimators=100,
-        max_depth=6,
+        max_depth=5,
         learning_rate=0.1,
+        min_child_weight=3,# 调优后的最佳叶子节点样本权重限制
         objective='multi:softprob',  # 配置多分类概率输出接口
         num_class=3,                 # 明确总类别数为 3
         random_state=42,
         eval_metric='mlogloss'
     )
     
-    # 5. 训练模型
+    # 训练模型
     # 修改为自然的法语输出
     print("Entraînement du modèle XGBoost à 3 classes (Sécurité, Canicule, Feu)...")
     model.fit(X_train, y_train)
     
-    # 6. 模型预测与评估
+    #  模型预测与评估
     y_pred = model.predict(X_test)
     
     # 修改为自然的法语输出

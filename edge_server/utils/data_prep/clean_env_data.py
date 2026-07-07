@@ -15,7 +15,9 @@ def calculate_heat_index(T_celsius, RH):
                    6.83783e-3*T**2 - 5.481717e-2*R**2 + 1.22874e-3*T**2*R + 
                    8.5282e-4*T*R**2 - 1.99e-6*T**2*R**2)
         
-        adj_dry = ((13 - R) / 4) * np.sqrt((17 - np.abs(T - 91.)) / 14)
+        # 使用 np.clip(..., 0, None) 将小于 0 的负数全部强制转换为 0
+        inner_value = (17 - np.abs(T - 91.)) / 14
+        adj_dry = ((13 - R) / 4) * np.sqrt(np.clip(inner_value, 0, None))
         adj_humid = ((R - 85) / 10) * ((87 - T) / 5)
         
         HI_full = np.where((R < 13) & (T >= 80) & (T <= 112), HI_full - adj_dry, HI_full)

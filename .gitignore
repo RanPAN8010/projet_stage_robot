@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 venv/
 .vscode/
+logs.log
 edge_server/data/*
 !edge_server/data/.gitkeep
 edge_server/ai_engine/*

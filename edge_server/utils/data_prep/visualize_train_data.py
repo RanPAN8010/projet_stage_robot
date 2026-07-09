@@ -4,10 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# Génère et sauvegarde trois graphiques (nuage de points, boîtes à moustaches et 
+# courbes de densité) pour analyser les profils environnementaux statiques et dynamiques.
 def generate_environmental_plots():
-    # ==========================================
-    # 1. 动态路径定位（基于您的 edge_server 切分法）
-    # ==========================================
     current_path = os.path.abspath(__file__)
     if "edge_server" in current_path:
         base_project_dir = current_path.split("edge_server")[0] + "edge_server"
@@ -25,7 +24,7 @@ def generate_environmental_plots():
     print("Chargement du jeu de données d'entraînement...")
     df = pd.read_csv(data_path)
     
-    # 建立显式的标签中文映射，以便生成清晰的图例
+    # 建立显式的标签映射，以便生成清晰的图例
     mapping_labels_francais = {
         0: "Sécurité",
         1: "Canicule",
@@ -47,9 +46,8 @@ def generate_environmental_plots():
     q_low_tr, q_hi_tr = df['Temp_Rate'].quantile(0.01), df['Temp_Rate'].quantile(0.99)
     q_low_hr, q_hi_hr = df['Humidity_Rate'].quantile(0.01), df['Humidity_Rate'].quantile(0.99)
 
-    # -------------------------------------------------------------------------
-    # 📊 图表 1 : 散点图 (温度 vs 湿度的绝对空间分布)
-    # -------------------------------------------------------------------------
+
+    # 图表 1 : 散点图 (温度 vs 湿度的绝对空间分布)
     print("Génération du Graphe 1 : Nuage de points...")
     plt.figure(figsize=(10, 6))
     
@@ -77,9 +75,7 @@ def generate_environmental_plots():
     plt.savefig(img_path_1, dpi=300)
     plt.close()
     
-    # -------------------------------------------------------------------------
-    # 📊 图表 2 : 箱线图 (静态特征与动态变动率的分布对比)
-    # -------------------------------------------------------------------------
+    # 图表 2 : 箱线图 (静态特征与动态变动率的分布对比)
     print("Génération du Graphe 2 : Boîtes à moustaches...")
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     
@@ -116,9 +112,8 @@ def generate_environmental_plots():
     plt.savefig(img_path_2, dpi=300)
     plt.close()
     
-    # -------------------------------------------------------------------------
-    # 📊 图表 3 : 直方图与密度曲线 (分析动态跳变 Delta Net 的数学可分性)
-    # -------------------------------------------------------------------------
+
+    #  图表 3 : 直方图与密度曲线 (分析动态跳变 Delta Net 的数学可分性)
     print("Génération du Graphe 3 : Courbes de densité des taux de variation...")
     fig, axes = plt.subplots(2, 1, figsize=(10, 8))
     
@@ -152,9 +147,9 @@ def generate_environmental_plots():
     print("\n" + "="*60)
     print("Visualisation du Dataset d'Entraînement Terminée avec Succès !")
     print("="*60)
-    print(f"1. 舱内环境温湿度分布散点图：{img_path_1}")
-    print(f"2. 各诊断状态下的统计学箱线图：{img_path_2}")
-    print(f"3. 传感器前后两帧净跳变速率密度曲线：{img_path_3}")
+    print(f"1. Scatter plot - Température/Humidité : {img_path_1}")
+    print(f"2. Boxplot - Statistiques par diagnostic : {img_path_2}")
+    print(f"3. Courbe de densité - Vitesse de saut : {img_path_3}")
     print("="*60 + "\n")
 
 if __name__ == "__main__":

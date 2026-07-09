@@ -5,7 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
-
+ 
+# Permet à l'utilisateur de sélectionner un modèle pour générer et sauvegarder 
+# le graphique de ses frontières de décision avec les données réelles.
 def plot_model_boundaries():
     current_path = os.path.abspath(__file__)
     if "edge_server" in current_path:

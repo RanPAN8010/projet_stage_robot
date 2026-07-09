@@ -3,6 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# Génère et sauvegarde trois graphiques (nuage de points, boîtes à moustaches et 
+# courbes de densité) pour visualiser la distribution des données selon l'état du conducteur.
 def generate_three_french_plots():
     current_path = os.path.abspath(__file__)
     if "edge_server" in current_path:

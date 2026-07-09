@@ -3,6 +3,7 @@ import numpy as np
 import os
 import xgboost as xgb
 
+# Calcule l'indice de chaleur (Heat Index) en Celsius à partir de la température et de l'humidité relative
 def calculate_heat_index(T_celsius, RH):
     T_f = T_celsius * 1.8 + 32
     HI_f = 0.5 * (T_f + 61.0 + ((T_f - 68.0) * 1.2) + (RH * 0.094))
@@ -19,6 +20,8 @@ def calculate_heat_index(T_celsius, RH):
         HI_f = np.where(mask, HI_full, HI_f)
     return (HI_f - 32) / 1.8
 
+# Charge les données brutes des capteurs, calcule les caractéristiques dynamiques, 
+# exécute les prédictions du modèle XGBoost et exporte les statistiques détaillées.
 def test_inference_performance():
     current_path = os.path.abspath(__file__)
     if "edge_server" in current_path:
@@ -72,14 +75,14 @@ def test_inference_performance():
     print(f"\nEvaluation terminée ! Résultats enregistrés sous : {output_path}")
     
     print("\n" + "="*40)
-    print("📊 STATISTIQUES DE DIAGNOSTIC AUTOMATIQUE")
+    print("STATISTIQUES DE DIAGNOSTIC AUTOMATIQUE")
     print("="*40)
     counts = df['Status'].value_counts()
     for status_type in ['Sécurité', 'Canicule', 'Feu/Fumée']:
         print(f"  -> {status_type} : {counts.get(status_type, 0)} lignes détectées")
     print("="*40)
     
-    print("\n👀 Extrait des prédictions (Lignes 5 à 15) :")
+    print("\n Extrait des prédictions (Lignes 5 à 15) :")
     print(df[['Timestamp', 'Temperature', 'Humidity', 'Status', 'Prob_Feu(2)']].iloc[5:16])
 
 if __name__ == "__main__":

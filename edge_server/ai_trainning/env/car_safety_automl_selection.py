@@ -2,10 +2,9 @@ import os
 import pandas as pd
 from pycaret.classification import setup, compare_models, tune_model
 
+# Charge les données, équilibre les classes et utilise PyCaret pour comparer et 
+# optimiser automatiquement le meilleur modèle de classification selon l'index F1.
 def run_automl_safety_selection():
-    # ==========================================
-    # 动态路径定位（采用你指定的严谨切割写法）
-    # ==========================================
     current_path = os.path.abspath(__file__)
     
     # 准确定位项目根目录 'edge_server'
@@ -14,14 +13,10 @@ def run_automl_safety_selection():
     else:
         print("Erreur : Le script n'est pas placé dans le dossier 'edge_server' !")
         return
-        
-    # 定位数据文件夹路径：edge_server/data/
     data_dir = os.path.join(base_project_dir, 'data')
     
     train_path = os.path.join(data_dir, 'final_train_data_5_features.csv')
     test_path = os.path.join(data_dir, 'final_test_data_5_features.csv')
-    
-    # 修改为自然的法语输出
     print("Chargement des données de train et test...")
     df_train = pd.read_csv(train_path)
     df_test = pd.read_csv(test_path)
@@ -34,16 +29,14 @@ def run_automl_safety_selection():
     
     print("\n================ CONFIGURATION DE L'EXPÉRIENCE ================")
     # 初始化 PyCaret 3分类环境
-    # fix_imbalance=True: 自动启用平衡算法处理稀少的 Canicule (1) 样本不平衡问题
     clf_setup = setup(
         data=data_for_automl,
         target='Label',
         train_size=0.8,
-        fix_imbalance=True, 
+        fix_imbalance=True, # 自动启用平衡算法处理稀少的 Canicule (1) 样本不平衡问题
         preprocess=True,
         numeric_features=['Temperature', 'Humidity', 'Temp_Rate', 'Humidity_Rate', 'Heat_Index'],
         session_id=42,
-        html=False,       # 确保在 PowerShell 中以纯文本表格输出
         verbose=True,
     )
     
@@ -51,12 +44,10 @@ def run_automl_safety_selection():
     print("Évaluation automatique de tous les algorithmes disponibles (LightGBM, RF, XGBoost, etc.)...")
     
     # 自动对比所有分类器模型
-    # sort='F1': 鉴于多分类且不平衡场景，使用 F1-macro 作为核心排序标准
-    # fold=3: 3折交叉验证，在百万级数据量下取得速度与准确性的平衡
     best_model = compare_models(
         exclude=['svm', 'gpc', 'rbfsvm', 'ridge'], 
-        sort='F1',
-        fold=3,
+        sort='F1', # 鉴于多分类且不平衡场景，使用 F1-macro 作为核心排序标准
+        fold=3, # 3折交叉验证
         budget_time=15   # 设定时限预算（分钟），防止脚本挂起
     )
     

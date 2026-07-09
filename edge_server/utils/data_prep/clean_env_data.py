@@ -1,7 +1,10 @@
 import pandas as pd
 import numpy as np
 import os
+# dataset2 https://huggingface.co/datasets/kopetri/AutoTherm
+# dataset1 https://www.kaggle.com/datasets/deepcontractor/smoke-detection-dataset
 
+#pour calculer l'index de chaude
 def calculate_heat_index(T_celsius, RH):
     T_f = T_celsius * 1.8 + 32
     HI_f = 0.5 * (T_f + 61.0 + ((T_f - 68.0) * 1.2) + (RH * 0.094))
@@ -19,6 +22,7 @@ def calculate_heat_index(T_celsius, RH):
         HI_f = np.where(mask, HI_full, HI_f)
     return (HI_f - 32) / 1.8
 
+#pour générer le dataset à parti de dataset2
 def process_car_data(file_path):
     df = pd.read_parquet(file_path).copy()
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
@@ -42,6 +46,7 @@ def process_car_data(file_path):
     cols = ['Timestamp', 'Temperature', 'Humidity', 'Temp_Rate', 'Humidity_Rate', 'Heat_Index', 'Label']
     return df[cols]
 
+# pour générer le dataset à partir de dataset1
 def process_smoke_data(file_path):
     df = pd.read_csv(file_path).copy()
     df = df[df['Fire Alarm'] == 1].copy()

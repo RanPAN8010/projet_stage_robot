@@ -1,96 +1,132 @@
+import os
+import glob
 import pandas as pd
 import numpy as np
-import os
 
-def calculate_heat_index(T_celsius, RH):
-    T_f = T_celsius * 1.8 + 32
-    HI_f = 0.5 * (T_f + 61.0 + ((T_f - 68.0) * 1.2) + (RH * 0.094))
-    mask = T_f >= 80
-    if mask.any():
-        T = T_f; R = RH
-        HI_full = (-42.379 + 2.04901523*T + 10.14333127*R - 0.22475541*T*R - 
-                   6.83783e-3*T**2 - 5.481717e-2*R**2 + 1.22874e-3*T**2*R + 
-                   8.5282e-4*T*R**2 - 1.99e-6*T**2*R**2)
-        inner_value = (17 - np.abs(T - 91.)) / 14
-        adj_dry = ((13 - R) / 4) * np.sqrt(np.clip(inner_value, 0, None))
-        adj_humid = ((R - 85) / 10) * ((87 - T) / 5)
-        HI_full = np.where((R < 13) & (T >= 80) & (T <= 112), HI_full - adj_dry, HI_full)
-        HI_full = np.where((R > 85) & (T >= 80) & (T <= 87), HI_full + adj_humid, HI_full)
-        HI_f = np.where(mask, HI_full, HI_f)
-    return (HI_f - 32) / 1.8
-
-def process_single_file(df, is_smoke_dataset=False):
-    if is_smoke_dataset:
-        # ==========================================================
-        # 🎯 核心净化：如果是火灾数据集，直接剔除所有未着火的干扰行！
-        # 只保留真正触发警报（Fire Alarm == 1）的硬核火灾数据
-        # ==========================================================
-        df = df[df['Fire Alarm'] == 1].copy()
-        if df.empty:
-            return pd.DataFrame()
-            
-        df['Timestamp'] = pd.to_datetime(df['UTC'], unit='s')
-        df = df.rename(columns={'Temperature[C]': 'Temperature', 'Humidity[%]': 'Humidity'})
-    else:
-        df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-        df = df.rename(columns={'Ambient_Temperature': 'Temperature', 'Ambient_Humidity': 'Humidity'})
-        
-    df = df.sort_values('Timestamp').reset_index(drop=True)
-    
-    df['dt'] = df['Timestamp'].diff().dt.total_seconds().replace(0, 1.0)
-    
-    temp_diff = df['Temperature'].diff()
-    hum_diff = df['Humidity'].diff()
-    
-    # 保持传感器台阶降噪截断
-    df['Temp_Rate'] = np.where(temp_diff.abs() <= 1, 0.0, temp_diff / df['dt'])
-    df['Humidity_Rate'] = np.where(hum_diff.abs() <= 1, 0.0, hum_diff / df['dt'])
-    
-    df['Heat_Index'] = calculate_heat_index(df['Temperature'], df['Humidity'])
-    
-    if is_smoke_dataset:
-        df['Label'] = 2  # 净化后，火灾数据集里的行百分之百是火灾标签
-    else:
-        df['Label'] = np.where(df['Temperature'] >= 40, 1, 0)
-        
-    df.dropna(subset=['Temp_Rate', 'Humidity_Rate'], inplace=True)
-    
-    cols = ['Timestamp', 'Temperature', 'Humidity', 'Temp_Rate', 'Humidity_Rate', 'Heat_Index', 'Label']
-    return df[cols]
-
-def main():
+# dataset: https://www.kaggle.com/datasets/tanjemahamed/mental-fatigue-level-detection-fatigueset-data
+# Scanne les dossiers de sessions, filtre la fatigue selon l'enquête, rééchantillonne 
+# les données physiologiques à 1s et les fusionne dans un fichier nettoyé.
+def clean_and_merge_fatigueset():
     current_path = os.path.abspath(__file__)
-    base_project_dir = current_path.split("edge_server")[0] + "edge_server"
-    data_dir = os.path.join(base_project_dir, 'data')
     
-    smoke_path = os.path.join(data_dir, 'smoke_detection_iot.csv')
-    car_train_path = os.path.join(data_dir, 'train-00000-of-00001.parquet')
-    car_test_path = os.path.join(data_dir, 'test-00000-of-00001.parquet')
+    if "edge_server" in current_path:
+        base_project_dir = current_path.split("edge_server")[0] + "edge_server"
+        
+    base_data_dir = os.path.join(base_project_dir, 'data', 'fatigueset')
+    output_dir = os.path.join(base_project_dir, 'data')
     
-    print("Purge des données normales du dataset de feu en cours...")
+    print(f"Répertoire racine du scan de données : {base_data_dir}")
+    print("Début du scan du répertoire Fatigueset...")
     
-    df_smoke = pd.read_csv(smoke_path)
-    processed_smoke = process_single_file(df_smoke, is_smoke_dataset=True)
+    all_sessions_compiled = []
     
-    smoke_train = processed_smoke.sample(frac=0.8, random_state=42)
-    smoke_test = processed_smoke.drop(smoke_train.index)
+    search_pattern = os.path.join(base_data_dir, '*', '*').replace('\\', '/')
+    all_paths = glob.glob(search_pattern)
     
-    df_car_train = pd.read_parquet(car_train_path)
-    processed_car_train = process_single_file(df_car_train, is_smoke_dataset=False)
+    session_paths = []
+    for p in all_paths:
+        parts = p.split(os.sep)
+        if len(parts) >= 2 and parts[-1].isdigit() and parts[-2].isdigit():
+            session_paths.append(p)
+            
+    print(f"Au total, {len(session_paths)} répertoires de sessions numériques valides ont été trouvés.")
     
-    df_car_test = pd.read_parquet(car_test_path)
-    processed_car_test = process_single_file(df_car_test, is_smoke_dataset=False)
-    
-    final_train = pd.concat([smoke_train, processed_car_train], ignore_index=True).sort_values('Timestamp')
-    final_test = pd.concat([smoke_test, processed_car_test], ignore_index=True).sort_values('Timestamp')
-    
-    train_output_path = os.path.join(data_dir, 'final_train_data_5_features.csv')
-    test_output_path = os.path.join(data_dir, 'final_test_data_5_features.csv')
-    
-    final_train.to_csv(train_output_path, index=False)
-    final_test.to_csv(test_output_path, index=False)
-    
-    print(f"Pipeline de purification terminé avec succès !")
+    if not session_paths:
+        print(f"Erreur : Aucun sous-dossier valide n'a été trouvé.")
+        return
+
+    for session_path in session_paths:
+        parts = session_path.split(os.sep)
+        participant = parts[-2]
+        session = parts[-1]
+        
+        hr_file = os.path.join(session_path, 'wrist_hr.csv')
+        temp_file = os.path.join(session_path, 'wrist_skin_temperature.csv')
+        rr_file = os.path.join(session_path, 'chest_rr_interval.csv')
+        fatigue_survey_file = os.path.join(session_path, 'exp_fatigue.csv')
+        
+        if not (os.path.exists(hr_file) and os.path.exists(temp_file) and os.path.exists(rr_file) and os.path.exists(fatigue_survey_file)):
+            continue
+            
+        df_survey = pd.read_csv(fatigue_survey_file)
+        avg_fatigue = df_survey.iloc[:, 1].mean() if 'fatigue_score' not in df_survey.columns else df_survey['fatigue_score'].mean()
+        
+        if avg_fatigue <= 4.0:
+            current_label = 0  
+        elif avg_fatigue >= 7.0:
+            current_label = 1  
+        else:
+            continue
+            
+        df_hr = pd.read_csv(hr_file)
+        df_temp = pd.read_csv(temp_file)
+        df_rr = pd.read_csv(rr_file)
+        
+        # 强制将时间戳列转为数值
+        df_hr.iloc[:, 0] = pd.to_numeric(df_hr.iloc[:, 0], errors='coerce')
+        df_temp.iloc[:, 0] = pd.to_numeric(df_temp.iloc[:, 0], errors='coerce')
+        df_rr.iloc[:, 0] = pd.to_numeric(df_rr.iloc[:, 0], errors='coerce')
+        
+        df_hr.dropna(subset=[df_hr.columns[0]], inplace=True)
+        df_temp.dropna(subset=[df_temp.columns[0]], inplace=True)
+        df_rr.dropna(subset=[df_rr.columns[0]], inplace=True)
+
+        # 智能识别单位
+        hr_unit = 'ms' if df_hr.iloc[0, 0] > 1e11 else 's'
+        temp_unit = 'ms' if df_temp.iloc[0, 0] > 1e11 else 's'
+        rr_unit = 'ms' if df_rr.iloc[0, 0] > 1e11 else 's'
+        
+        df_hr['time'] = pd.to_datetime(df_hr.iloc[:, 0], unit=hr_unit, errors='coerce')
+        df_temp['time'] = pd.to_datetime(df_temp.iloc[:, 0], unit=temp_unit, errors='coerce')
+        df_rr['time'] = pd.to_datetime(df_rr.iloc[:, 0], unit=rr_unit, errors='coerce')
+        
+        df_hr.dropna(subset=['time'], inplace=True)
+        df_temp.dropna(subset=['time'], inplace=True)
+        df_rr.dropna(subset=['time'], inplace=True)
+        
+        if df_hr.empty or df_temp.empty or df_rr.empty:
+            continue
+
+        print(f"正在处理: 参与者 {participant} -> 场次 {session}")
+
+        # 【核心修正】显式调用具体列名，剔除不兼容的 .iloc
+        # wrist_hr.csv 的列名为 timestamp, hr
+        resampled_hr = df_hr.resample('1s', on='time')['hr'].mean().reset_index()
+        
+        # wrist_skin_temperature.csv 的列名为 timestamp, temp
+        resampled_temp = df_temp.resample('1s', on='time')['temp'].mean().reset_index()
+        
+        # chest_rr_interval.csv 的列名为 timestamp, duration
+        resampled_hrv = df_rr.resample('1s', on='time')['duration'].std().reset_index()
+        resampled_hrv.rename(columns={'duration': 'hrv'}, inplace=True)
+        resampled_hrv['hrv'] = resampled_hrv['hrv'].fillna(0)
+        
+        # 横向拼接特征
+        session_merged = pd.merge(resampled_hr, resampled_temp, on='time', how='inner')
+        session_merged = pd.merge(session_merged, resampled_hrv, on='time', how='inner')
+        
+        session_merged['Label'] = current_label
+        session_merged = session_merged[['hr', 'temp', 'hrv', 'Label']]
+        session_merged.columns = ['HeartRate', 'Temperature', 'HRV', 'Label']
+        
+        all_sessions_compiled.append(session_merged)
+
+    if all_sessions_compiled:
+        final_fatigue_df = pd.concat(all_sessions_compiled, ignore_index=True)
+        final_fatigue_df.dropna(inplace=True)
+        
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
+        output_file_path = os.path.join(output_dir, 'fatigueset_cleaned.csv')
+        final_fatigue_df.to_csv(output_file_path, index=False)
+        print("\n==========================================")
+        print("Nettoyage et alignement des caractéristiques de Fatigueset terminés !")
+        print(f"Chemin du fichier généré : {output_file_path}")
+        print(f"Nombre total d'échantillons extraits : {len(final_fatigue_df)} lignes (secondes)")
+        print("==========================================")
+    else:
+        print("\nErreur : Impossible d'extraire des lignes de données physiologiques temporelles valides.")
 
 if __name__ == "__main__":
-    main()
+    clean_and_merge_fatigueset()

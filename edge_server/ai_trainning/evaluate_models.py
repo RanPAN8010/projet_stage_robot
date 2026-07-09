@@ -5,10 +5,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
 import joblib
 
+# Permet à l'utilisateur de choisir un modèle enregistré, charge son standardiseur 
+# associé, puis évalue ses performances sur le jeu de test via un rapport et une matrice.
 def evaluate_selected_model():
     # 获取当前脚本的绝对路径
     current_path = os.path.abspath(__file__)
-    
     # 动态定位项目根目录 edge_server
     if "edge_server" in current_path:
         base_project_dir = current_path.split("edge_server")[0] + "edge_server"

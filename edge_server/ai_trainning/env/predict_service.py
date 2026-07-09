@@ -3,6 +3,7 @@ import numpy as np
 import os
 import xgboost as xgb
 
+# dataset pour prédire: edge_server\data\sensor_data_for_ai 1.csv
 # Calcule l'indice de chaleur (Heat Index) en Celsius à partir de la température et de l'humidité relative
 def calculate_heat_index(T_celsius, RH):
     T_f = T_celsius * 1.8 + 32
